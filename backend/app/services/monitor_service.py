@@ -1,9 +1,9 @@
 
 from uuid import uuid4, UUID
 
-from sqlalchemy import select
+from sqlalchemy import select,func
 from sqlalchemy.orm import Session
-
+from sqlalchemy.exc import IntegrityError
 from app.models.monitor import Monitor
 from app.schemas.monitor import MonitorCreate, MonitorUpdate
 
@@ -22,24 +22,46 @@ def create_monitor_service(
         status="active"
     )
 
-    db.add(new_monitor)
-    db.commit()
-    db.refresh(new_monitor)
+    try:
+        db.add(new_monitor)
+        db.commit()
+        db.refresh(new_monitor)
+
+    except IntegrityError:
+        db.rollback()
+        raise
 
     return new_monitor
 
 
 def get_all_monitors_service(
     db: Session,
-    user_id: UUID
+    user_id: UUID,
+    limit: int,
+    offset: int
 ):
-    statement = select(Monitor).where(
-        Monitor.user_id == user_id
+    count_statement = (
+        select(func.count())
+        .select_from(Monitor)
+        .where(Monitor.user_id == user_id)
+    )
+
+    total = db.scalar(count_statement)
+
+    statement = (
+        select(Monitor)
+        .where(Monitor.user_id == user_id)
+        .order_by(
+            Monitor.created_at.desc(),
+            Monitor.id.desc()
+        )
+        .limit(limit)
+        .offset(offset)
     )
 
     monitors = db.scalars(statement).all()
 
-    return monitors
+    return monitors, total
 
 
 def get_monitor_by_id_service(
@@ -53,9 +75,7 @@ def get_monitor_by_id_service(
     )
 
     monitor = db.scalar(statement)
-
     return monitor
-
 
 def update_monitor_service(
     db: Session,
@@ -76,6 +96,9 @@ def update_monitor_service(
         exclude_unset=True,
         exclude_none=True
     )
+
+    if not update_data:
+        return existing_monitor
 
     for field, value in update_data.items():
 

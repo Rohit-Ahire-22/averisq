@@ -1,14 +1,16 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.db.database import get_db
 from app.schemas.monitor import (
     MonitorCreate,
     MonitorResponse,
-    MonitorUpdate
+    MonitorUpdate,
+    MonitorListResponse
 )
 from app.services.monitor_service import (
     create_monitor_service,
@@ -30,26 +32,48 @@ router = APIRouter(
 DEV_USER_ID = UUID("550e8400-e29b-41d4-a716-446655440000")
 
 
-@router.post("/", response_model=MonitorResponse)
+@router.post(
+    "/",
+    response_model=MonitorResponse,
+    status_code=status.HTTP_201_CREATED
+)
 def create_monitor(
     monitor: MonitorCreate,
     db: Session = Depends(get_db)
 ):
-    return create_monitor_service(
-        db=db,
-        monitor=monitor,
-        user_id=DEV_USER_ID
-    )
+    try:
+        return create_monitor_service(
+            db=db,
+            monitor=monitor,
+            user_id=DEV_USER_ID
+        )
+
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Unable to create monitor due to a database constraint conflict."
+        )
 
 
-@router.get("/", response_model=list[MonitorResponse])
+@router.get("/", response_model=MonitorListResponse)
 def get_all_monitors(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0)
 ):
-    return get_all_monitors_service(
+    monitors, total = get_all_monitors_service(
         db=db,
-        user_id=DEV_USER_ID
+        user_id=DEV_USER_ID,
+        limit=limit,
+        offset=offset
     )
+
+    return {
+        "items": monitors,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
 
 
 @router.get("/{monitor_id}", response_model=MonitorResponse)
