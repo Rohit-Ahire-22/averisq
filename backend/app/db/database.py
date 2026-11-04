@@ -1,15 +1,11 @@
-import os
-
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
-load_dotenv()
+from app.core.config import settings
 
-DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not configured")
+DATABASE_URL = settings.database_url
+
 
 # 1. Create the database engine
 engine = create_engine(
@@ -17,12 +13,14 @@ engine = create_engine(
     pool_pre_ping=True
 )
 
+
 # 2. Create a session factory
 SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,
     autocommit=False
 )
+
 
 # 3. Provide a database session to FastAPI
 def get_db():
