@@ -68,19 +68,9 @@ def test_monitor_does_not_persist(db_session):
 
     assert monitor is None
 
-def test_monitor_lifecycle(client, db_session):
-    # Arrange: create a user
-    test_user = User(
-        id=UUID("550e8400-e29b-41d4-a716-446655440000"),
-        email="test@example.com",
-        password_hash="test_hash"
-    )
-
-    db_session.add(test_user)
-    db_session.flush()
-
-    # Create a monitor through the API
-    create_response = client.post(
+def test_monitor_lifecycle(authenticated_client):
+    # Create a monitor
+    create_response = authenticated_client.post(
         "/api/v1/monitors/",
         json={
             "name": "Lifecycle Monitor",
@@ -94,7 +84,7 @@ def test_monitor_lifecycle(client, db_session):
     monitor_id = create_response.json()["id"]
 
     # 1. Retrieve the monitor
-    get_response = client.get(
+    get_response = authenticated_client.get(
         f"/api/v1/monitors/{monitor_id}"
     )
 
@@ -102,7 +92,7 @@ def test_monitor_lifecycle(client, db_session):
     assert get_response.json()["name"] == "Lifecycle Monitor"
 
     # 2. Update the monitor
-    update_response = client.patch(
+    update_response = authenticated_client.patch(
         f"/api/v1/monitors/{monitor_id}",
         json={"name": "Updated Monitor"}
     )
@@ -111,7 +101,7 @@ def test_monitor_lifecycle(client, db_session):
     assert update_response.json()["name"] == "Updated Monitor"
 
     # 3. Delete the monitor
-    delete_response = client.delete(
+    delete_response = authenticated_client.delete(
         f"/api/v1/monitors/{monitor_id}"
     )
 
@@ -119,30 +109,30 @@ def test_monitor_lifecycle(client, db_session):
     assert delete_response.content == b""
 
     # 4. Confirm it no longer exists
-    missing_response = client.get(
+    missing_response = authenticated_client.get(
         f"/api/v1/monitors/{monitor_id}"
     )
 
     assert missing_response.status_code == 404
 
-def test_monitor_not_found(client):
+def test_monitor_not_found(authenticated_client):
     missing_id = UUID("00000000-0000-0000-0000-000000000001")
 
     # GET
-    get_response = client.get(
+    get_response = authenticated_client.get(
         f"/api/v1/monitors/{missing_id}"
     )
     assert get_response.status_code == 404
 
     # PATCH
-    update_response = client.patch(
+    update_response = authenticated_client.patch(
         f"/api/v1/monitors/{missing_id}",
         json={"name": "Updated"}
     )
     assert update_response.status_code == 404
 
     # DELETE
-    delete_response = client.delete(
+    delete_response = authenticated_client.delete(
         f"/api/v1/monitors/{missing_id}"
     )
     assert delete_response.status_code == 404

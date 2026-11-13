@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.monitors import router as monitor_router
+from app.api.auth import router as auth_router
 
 
 app = FastAPI(
@@ -16,3 +17,4 @@ def root():
 
 
 app.include_router(monitor_router)
+app.include_router(auth_router)

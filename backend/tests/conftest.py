@@ -8,6 +8,11 @@ from tests.test_database import TestSessionLocal, test_engine
 
 from fastapi.testclient import TestClient
 
+from uuid import uuid4
+
+from app.core.security import create_access_token
+from app.models.user import User
+
 from app.main import app
 from app.db.database import get_db
 
@@ -46,3 +51,22 @@ def client(db_session):
         yield test_client
 
     app.dependency_overrides.clear()
+
+@pytest.fixture
+def authenticated_client(client, db_session):
+    test_user = User(
+        id=uuid4(),
+        email="auth_test@example.com",
+        password_hash="test_hash"
+    )
+
+    db_session.add(test_user)
+    db_session.flush()
+
+    token = create_access_token(test_user.id)
+
+    client.headers.update({
+        "Authorization": f"Bearer {token}"
+    })
+
+    return client
