@@ -107,8 +107,12 @@ def update_monitor_service(
 
         setattr(existing_monitor, field, value)
 
-    db.commit()
-    db.refresh(existing_monitor)
+    try:
+        db.commit()
+        db.refresh(existing_monitor)
+    except IntegrityError:
+        db.rollback()
+        raise
 
     return existing_monitor
 
